@@ -134,8 +134,8 @@ def container_info(container):
 def prefix_path(container_name, prefix):
     if not isinstance(prefix, str):
         prefix = prefix.prefix
-    # prefix already have a leading /
-    return unslash(f'/{container_name}{prefix}')
+    # prefix on my cluster do not have a leading /
+    return unslash(f'/{container_name}/{prefix}')
 
 
 def prefix_info(container_name, prefix):
@@ -155,7 +155,7 @@ def info_of(container_name, obj, name_key):
     return {
         'name': prefix_path(container_name, getattr(obj, name_key)),
         'size': getattr(obj, 'size', None),
-        'created': parse_time(obj.creating_time),
+        # 'created': parse_time(obj.creating_time),
         'mtime': parse_time(obj.last_modified),
         'atime': parse_time(obj.access_time),
         'mode': int(obj.mode[1:], base=8),  # '040755'
