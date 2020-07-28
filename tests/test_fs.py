@@ -17,11 +17,11 @@ from os.path import dirname
 
 import pytest
 
+from conftest import test_container, test_dir
 from v3iofs import V3ioFS
 from v3iofs.fs import parse_time
 from v3iofs.path import split_container
 
-container = 'bigdata'  # TODO: Configuration
 
 
 def create_file(client, path):

@@ -24,6 +24,12 @@ from v3io.dataplane import Client
 
 from .file import V3ioFile
 from .path import split_container, unslash
+<<<<<<< HEAD
+=======
+
+_file_key = 'key'
+_dir_key = 'prefix'
+>>>>>>> igz/master
 
 
 class V3ioFS(AbstractFileSystem):
@@ -77,19 +83,51 @@ class V3ioFS(AbstractFileSystem):
 
     def ls(self, path, detail=False, **kwargs):
         """Lists files & directories under path"""
+<<<<<<< HEAD
         path = self._strip_protocol(path)
+=======
+>>>>>>> igz/master
         full_path = path
         container, path = split_container(path)
         if not container:
             return self._list_containers(detail)
 
+        err = False
+        try:
+            resp = self._client.get_container_contents(
+                container=container,
+                path=path,
+                get_all_attributes=True,
+                raise_for_status=[HTTPStatus.OK],
+            )
+        except RuntimeError:
+            err = True
+
+        # If not data, try to find file in parent directory
+        if err or not _has_data(resp):
+            return [self._ls_file(container, path, detail)]
+
+        out = (
+            _resp_dirs(resp, container, detail) +
+            _resp_files(resp, container, detail)
+        )
+
+        if not out:
+            raise FileNotFoundError(f'{full_path!r} not found')
+
+        return out
+
+    def _ls_file(self, container, path, detail):
+        # '/a/b/c' -> ('/a/b', 'c')
+        dirname, _, filename = path.rpartition('/')
         resp = self._client.get_container_contents(
             container=container,
-            path=path,
+            path=dirname,
             get_all_attributes=True,
             raise_for_status='never',
         )
 
+<<<<<<< HEAD
         dirs = _resp_dirs(resp, container)
         files = _resp_files(resp, container)
 
@@ -118,6 +156,18 @@ class V3ioFS(AbstractFileSystem):
             return pathlist_
 
         return [path['name'] for path in pathlist]
+=======
+        full_path = f'/{container}/{path}'
+        contents = getattr(resp.output, 'contents', [])
+        objs = [obj for obj in contents if obj.key == path]
+        if not objs:
+            raise FileNotFoundError(full_path)
+
+        obj = objs[0]
+        if not detail:
+            return full_path
+        return info_of(container, obj, _file_key)
+>>>>>>> igz/master
 
     def _list_containers(self, detail):
         resp = self._client.get_containers(raise_for_status=[HTTPStatus.OK])
@@ -168,8 +218,12 @@ class V3ioFS(AbstractFileSystem):
         """
 
         out = self.ls(path, detail=True, **kw)
+<<<<<<< HEAD
         spath = path.rstrip('/')
         entries = [o for o in out if o['name'].rstrip('/') == spath]
+=======
+        entries = [o for o in out if unslash(o['name']) == unslash(path)]
+>>>>>>> igz/master
 
         if len(entries) == 1:
             entry = entries[0]
@@ -187,10 +241,16 @@ class V3ioFS(AbstractFileSystem):
         mode='rb',
         block_size=None,
         autocommit=True,
+<<<<<<< HEAD
         cache_options="readahead",
         **kw,
     ):
 
+=======
+        cache_options=None,
+        **kw,
+    ):
+>>>>>>> igz/master
         return V3ioFile(
             fs=self,
             path=path,
@@ -204,6 +264,15 @@ class V3ioFS(AbstractFileSystem):
 
 def container_path(container):
     return f'/{container.name}'
+
+
+def parse_time(creation_date):
+    # '2020-03-26T09:42:57.504000+00:00'
+    # '2020-03-26T09:42:57.71Z'
+    i = creation_date.rfind('+')  # If not found will be -1, good for Z
+    dt = datetime.strptime(creation_date[:i], '%Y-%m-%dT%H:%M:%S.%f')
+    dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
 
 
 def container_info(container):
@@ -228,13 +297,9 @@ def prefix_info(container_name, prefix):
     return info_of(container_name, prefix, 'prefix')
 
 
-def object_path(container_name, object):
-    # object.key already have a leading /
-    return f'/{container_name}{object.key}'
-
-
-def object_info(container_name, object):
-    return info_of(container_name, object, 'key')
+def obj_path(container, obj, name_key):
+    path = unslash(getattr(obj, name_key))
+    return f'/{container}/{path}'
 
 
 def info_of(container_name, obj, name_key):
@@ -257,13 +322,7 @@ def info_of(container_name, obj, name_key):
     return info
 
 
-def parse_time(creation_date):
-    # '2020-03-26T09:42:57.504000+00:00'
-    # '2020-03-26T09:42:57.71Z'
-    i = creation_date.rfind('+')  # If not found will be -1, good for Z
-    dt = datetime.strptime(creation_date[:i], '%Y-%m-%dT%H:%M:%S.%f')
-    dt = dt.replace(tzinfo=timezone.utc)
-    return dt.timestamp()
+    return info
 
 
 def split_auth(url):
